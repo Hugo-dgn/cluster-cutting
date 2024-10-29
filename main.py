@@ -57,7 +57,7 @@ def plotWaveforms(spk, normalization):
 
 def getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2):
     score1 = score.lagScore(lags, crosscorr1)
-    score2 = score.simetryScore(crosscorr1)
+    score2 = score.symmetryScore(crosscorr1)
     score3 = score.similarityScore(corr1, corr2)
     score4 = score.waveformsScore(waveforms1, waveforms2)
     return score1, score2, score3, score4
@@ -65,6 +65,7 @@ def getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2):
 
 
 def plotSingle(args):
+    print("Loading data")
     res_data, clu_data, spk_data, xml_data = load(args)
     clu_data = clu_data[1:]
     units = utils.getUnits(clu_data)
@@ -102,6 +103,7 @@ def computeScore(args):
     lastUnits = np.array([])
     lastCorr = np.array([])
     lastCorr = lastCorr.reshape((0, 0, 2*args.binNumber))
+    print("Loading data")
     res_data, clu_data, spk_data, xml_data = load(args)
     input("Press any key to load the .clu file and start the computation")
     while flag:
@@ -221,7 +223,7 @@ if __name__ == '__main__':
     score_parser.add_argument("--persistent", action="store_true", help="Use persistent homology")
     score_parser.add_argument("--plot", action="store_true", help="Plot the likelihood matrix")
     score_parser.add_argument("--max_workers", type=int, default=16, help="Number of workers")
-    score_parser.add_argument("--metric", type=int, choices=[0, 1], nargs=4, default=[1, 1, 1, 1], help="Metric to use")
+    score_parser.add_argument("--metric", type=int, choices=[0, 1], nargs=5, default=[1, 1, 1, 1, 1], help="Metric to use")
     score_parser.set_defaults(func=computeScore)
     
 

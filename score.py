@@ -39,19 +39,30 @@ def symmetryScore(corr):
 
 def waveformsScore(waveforms1, waveforms2):
 
-    norm1 = np.linalg.norm(waveforms1 - np.mean(waveforms1, axis=0), axis=0)
-    norm2 = np.linalg.norm(waveforms2 - np.mean(waveforms2, axis=0), axis=0)
-    norm = np.linalg.norm(waveforms1 - waveforms2, axis=0)
-    cumnorm = 2*np.mean(norm/(norm1+norm2))
+    
+    normalisation = np.mean(waveforms1**2, axis=0) + np.mean(waveforms2**2, axis=0)
+    third_quartile = np.percentile(normalisation, 75)
+    significant = normalisation > third_quartile
 
-    score = np.exp(-cumnorm)
+    nmse = np.mean((waveforms1 - waveforms2)**2, axis=0)/normalisation
+    nmse = np.mean(nmse[significant])
+
+    score = np.exp(-nmse)
+    return score
+
+def spikeChannelDistanceScore(waveforms1, waveforms2):
+    CenteredWaveforms1 = waveforms1 - np.mean(waveforms1, axis=0)
+    CenteredWaveforms2 = waveforms2 - np.mean(waveforms2, axis=0)
+    norm1 = np.linalg.norm(CenteredWaveforms1, axis=0)
+    norm2 = np.linalg.norm(CenteredWaveforms2, axis=0)
     largestPeakDistance = np.abs(np.argmax(norm1) - np.argmax(norm2))
-    adjustedScore = score * np.exp(-largestPeakDistance)
-    return adjustedScore
+    score = np.exp(-largestPeakDistance)
+    return score
+
 
 def getLikelihood(lags, corrs, waveforms):
     n = corrs.shape[0]
-    likelihood = np.zeros((n,n, 4))
+    likelihood = np.zeros((n,n, 5))
 
     for i in range(n):
         for j in range(i):
@@ -59,7 +70,8 @@ def getLikelihood(lags, corrs, waveforms):
             score2 = symmetryScore(corrs[i,j, :])
             score3 = similarityScore(corrs[i,i, :], corrs[j,j, :])
             score4 = waveformsScore(waveforms[i], waveforms[j])
-            likelihood[i,j, :] = score1, score2, score3, score4
+            score5 = spikeChannelDistanceScore(waveforms[i], waveforms[j])
+            likelihood[i,j, :] = score1, score2, score3, score4, score5
 
     return likelihood
 

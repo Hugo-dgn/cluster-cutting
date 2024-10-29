@@ -10,7 +10,7 @@ def getSampleParameters(xml_data, session):
     root = xml_data.getroot()
     spikeDetection = root.find('spikeDetection')
     channelGroups = spikeDetection[0]
-    group = channelGroups[session]
+    group = channelGroups[session-1]
     nSamples = int(group.find('nSamples').text)
     nChannels = len(group.find('channels'))
     return nSamples, nChannels
@@ -54,6 +54,6 @@ def getConnectedComponents(graph, linkScore):
                     visited[neighbor] = True
                     queue.append(neighbor)
         groups.append(group)
-        groupsScore.append(groupScore/len(group))
+        groupsScore.append(groupScore/(len(group)-1))
     
     return groups, groupsScore
