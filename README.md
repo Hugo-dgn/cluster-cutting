@@ -55,5 +55,5 @@ python main.py score <path> <session> --max_workers <max_workers>
 Every parameter can be changed in persistent mode with the command:
 
 ```bash
-:<arg>:<value>
+:<arg>=<value>
 ```

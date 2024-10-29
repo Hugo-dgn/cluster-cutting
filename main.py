@@ -103,6 +103,7 @@ def computeScore(args):
     lastCorr = np.array([])
     lastCorr = lastCorr.reshape((0, 0, 2*args.binNumber))
     res_data, clu_data, spk_data, xml_data = load(args)
+    input("Press any key to load the .clu file and start the computation")
     while flag:
         clu_data = loadClu(args)
         clu_data = clu_data[1:]
