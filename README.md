@@ -38,7 +38,7 @@ The `metric` argument specifies which of the four metrics to use, in the followi
 For example:
 
 ```bash
-python main.py score <path> <session> --metric 0 0 0 1
+python main.py score <path> <session> --metric 0 0 0 1 0
 ```
 
 This would use only the **Waveforms metric** to compute the score.
