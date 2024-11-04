@@ -1,51 +1,20 @@
-import os
-import re
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-import xml.etree.ElementTree as ET
+
 
 import compute
 import score
 import utils
+import loader
 
-def getPath(args):
-    path = args.path
-    session = args.session
+# Default values
 
-    clu = rf'.*clu\.{session}$'
-    res = rf'.*res\.{session}$'
-    spk = rf'.*spk\.{session}$'
-    xml = rf'Rat[0-9]*_[0-9]*\.xml$'
+binSize = 20
+binNumber = 30
+n = 20
 
-    clu_files = [f for f in os.listdir(path) if re.match(clu, f)][0]
-    res_files = [f for f in os.listdir(path) if re.match(res, f)][0]
-    spk_files = [f for f in os.listdir(path) if re.match(spk, f)][0]
-    xml_files = [f for f in os.listdir(path) if re.match(xml, f)][0]
-
-    clu_path = os.path.join(path, clu_files)
-    res_path = os.path.join(path, res_files)
-    spk_path = os.path.join(path, spk_files)
-    xml_path = os.path.join(path, xml_files)
-
-    return res_path, clu_path, spk_path, xml_path
-
-def load(args):
-    res_path, clu_path, spk_path, xml_path = getPath(args)
-
-    res_data = np.loadtxt(res_path, dtype=int)
-    clu_data = np.loadtxt(clu_path, dtype=int)
-    spk_data = np.fromfile(spk_path, dtype=np.int16)
-    xml_data = ET.parse(xml_path)
-
-    return res_data, clu_data, spk_data, xml_data
-
-def loadClu(args):
-    _, clu_path, _, _ = getPath(args)
-
-    clu_data = np.loadtxt(clu_path, dtype=int)
-
-    return clu_data
+# Functions
 
 def plotWaveforms(spk, normalization):
     spk = spk - spk.mean(axis=0)
@@ -55,19 +24,26 @@ def plotWaveforms(spk, normalization):
     for i in range(spk.shape[1]):
         plt.plot(spk[:, i] + i)
 
-def getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2):
-    score1 = score.lagScore(lags, crosscorr1)
-    score2 = score.symmetryScore(crosscorr1)
+def getScore(lags, crosscorr, corr1, corr2, waveforms1, waveforms2):
+    score1 = score.lagScore(lags, crosscorr)
+    score2 = score.symmetryScore(lags, crosscorr)
     score3 = score.similarityScore(corr1, corr2)
     score4 = score.waveformsScore(waveforms1, waveforms2)
     return score1, score2, score3, score4
     
 
-
 def plotSingle(args):
     print("Loading data")
-    res_data, clu_data, spk_data, xml_data = load(args)
+    clu_data = loader.loadClu(args)
     clu_data = clu_data[1:]
+    relevent = np.logical_or(clu_data == args.ref, clu_data == args.target)
+    res_data = loader.loadRes(args)
+    xml_data = loader.loadXml(args)
+    spk_data = loader.loadSpikes(clu_data, [args.ref, args.target], xml_data, args)
+
+    clu_data = clu_data[relevent]
+    res_data = res_data[relevent]
+
     units = utils.getUnits(clu_data)
     lags, crosscorr1 = compute.getSingleCrossCorr(res_data, clu_data, args.ref, args.target, args.binSize, args.binNumber)
     lags, corr1 = compute.getSingleCrossCorr(res_data, clu_data, args.ref, args.ref, args.binSize, args.binNumber)
@@ -104,10 +80,10 @@ def computeScore(args):
     lastCorr = np.array([])
     lastCorr = lastCorr.reshape((0, 0, 2*args.binNumber))
     print("Loading data")
-    res_data, clu_data, spk_data, xml_data = load(args)
+    res_data, clu_data, spk_data, xml_data = loader.load(args)
     input("Press any key to load the .clu file and start the computation")
     while flag:
-        clu_data = loadClu(args)
+        clu_data = loader.loadClu(args)
         clu_data = clu_data[1:]
         units = utils.getUnits(clu_data)
         n = len(units)
@@ -149,7 +125,7 @@ def computeScore(args):
         for groupScore, group in zip(groupsScore, groups):
             grouped_units = tuple(int(u) for u in units[list(group)])
             grouped_units = sorted(grouped_units)
-            print(f"Units: {grouped_units} | Score: {groupScore:.1f}")
+            print(f"Units: {grouped_units} | Score: {100*groupScore:.1f}")
 
 
         if args.plot:
@@ -210,16 +186,16 @@ if __name__ == '__main__':
     single_parser.add_argument("session", type=int, help="Session number")
     single_parser.add_argument("ref", type=int, help="Reference unit")
     single_parser.add_argument("target", type=int, help="Target unit")
-    single_parser.add_argument("--binSize", type=int, default=10, help="Bin size")
-    single_parser.add_argument("--binNumber", type=int, default=20, help="Bin number")
+    single_parser.add_argument("--binSize", type=int, default=binSize, help="Bin size")
+    single_parser.add_argument("--binNumber", type=int, default=binNumber, help="Bin number")
     single_parser.set_defaults(func=plotSingle)
 
     score_parser = subparsers.add_parser("score", help="Compute score")
     score_parser.add_argument("path", type=str, help="Path to the data")
     score_parser.add_argument("session", type=int, help="Session number")
-    score_parser.add_argument("--binSize", type=int, default=10, help="Bin size")
-    score_parser.add_argument("--binNumber", type=int, default=20, help="Bin number")
-    score_parser.add_argument("--n", type=int, default=10, help="Number of similar units")
+    score_parser.add_argument("--binSize", type=int, default=binSize, help="Bin size")
+    score_parser.add_argument("--binNumber", type=int, default=binNumber, help="Bin number")
+    score_parser.add_argument("--n", type=int, default=n, help="Number of similar units")
     score_parser.add_argument("--persistent", action="store_true", help="Use persistent homology")
     score_parser.add_argument("--plot", action="store_true", help="Plot the likelihood matrix")
     score_parser.add_argument("--max_workers", type=int, default=16, help="Number of workers")
