@@ -1,8 +1,11 @@
 import numpy as np
 
 def lagScore(lags, corr):
+    S = np.sum(corr)
+    if S == 0:
+        return 0
     L = np.max(lags)
-    elags = np.sum(np.abs(lags)*corr)/np.sum(corr)
+    elags = np.sum(np.abs(lags)*corr)/S
     score = np.exp(-abs(elags)/L)
     return score
 
