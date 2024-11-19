@@ -6,7 +6,7 @@ def lagScore(lags, corr):
         return 0
     L = np.max(lags)
     elags = np.sum(np.abs(lags)*corr)/S
-    score = np.exp(-abs(elags)/L)
+    score = 2*elags/np.max(lags)
     return score
 
 def similarityScore(corr1, corr2):
