@@ -61,7 +61,7 @@ def plotSingle(args):
     waveforms2 = waveforms[np.where(units == args.target)[0][0]]
 
     score1, score2, score3, score4, score5 = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
-    score = score1**args.metric[0]*score2**args.metric[1]*score3**args.metric[2]*score4**args.metric[3]*score5**args.metric[4]
+    score = 100*score1**args.metric[0]*score2**args.metric[1]*score3**args.metric[2]*score4**args.metric[3]*score5**args.metric[4]
     print(f"Refractory: {score1}\nSymmetry: {score2}\nSimilarity: {score3}\nWaveforms: {score4}\nchannel: {score5}\nScore: {score}")
 
     spks = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
