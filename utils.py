@@ -1,5 +1,11 @@
 import numpy as np
 
+def smooth(x, kernel_size, sigma):
+    kernel = np.exp(-np.arange(-kernel_size, kernel_size+1)**2/(2*sigma**2))
+    kernel = kernel/np.sum(kernel)
+    return np.convolve(x, kernel, mode='same')
+    
+
 def getUnits(clu):
     units = np.unique(clu)
     units = np.sort(units)
@@ -57,3 +63,16 @@ def getConnectedComponents(graph, linkScore):
         groupsScore.append(groupScore/(len(group)-1))
     
     return groups, groupsScore
+
+def getPairsFromGroups(units, groups):
+    pairs = []
+    for group in groups:
+        n = len(group)
+        for i in range(n):
+            for j in range(i):
+                a = units[group[i]]
+                b = units[group[j]]
+                x = min(a, b)
+                y = max(a, b)
+                pairs.append((x, y))
+    return pairs

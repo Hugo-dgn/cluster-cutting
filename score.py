@@ -1,30 +1,22 @@
 import numpy as np
 
 def lagScore(lags, corr):
-    norm = np.linalg.norm(corr)
-    if norm == 0:
-        return 0
-    
-    EabsLag = np.sum(np.abs(lags)*corr/np.sum(corr))
-    baseLag = np.mean(np.abs(lags))
-
-
-    score = (EabsLag/(baseLag+1))**4
-
+    L = np.max(lags)
+    elags = np.sum(np.abs(lags)*corr)/np.sum(corr)
+    score = np.exp(-abs(elags)/L)
     return score
 
 def similarityScore(corr1, corr2):
-    norm1 = np.linalg.norm(corr1)
-    norm2 = np.linalg.norm(corr2)
+    norm1 = np.sum(corr1)
+    norm2 = np.sum(corr2)
     if norm1 == 0 or norm2 == 0:
         return 0
     
-    corr1 = corr1/norm1
-    corr2 = corr2/norm2
+    pdf1 = corr1/norm1
+    pdf2 = corr2/norm2
     
-    diffNorm = np.linalg.norm(corr1 - corr2)
-    diffNormAdjusted = 2*diffNorm/(np.linalg.norm(corr1) + np.linalg.norm(corr2))
-    score = np.exp(-diffNormAdjusted)
+    helinger = (0.5*np.sum((pdf1**0.5 - pdf2**0.5)**2))**0.5
+    score = np.exp(-helinger)
     return score
 
 def symmetryScore(lags, corr):
@@ -37,15 +29,12 @@ def symmetryScore(lags, corr):
 
 def waveformsScore(waveforms1, waveforms2):
 
-    
-    normalisation = np.mean(waveforms1**2, axis=0) + np.mean(waveforms2**2, axis=0)
-    third_quartile = np.percentile(normalisation, 75)
-    significant = normalisation > third_quartile
+    catWaveform1 = waveforms1.flatten()
+    catWaveform2 = waveforms2.flatten()
 
-    nmse = np.mean((waveforms1 - waveforms2)**2, axis=0)/normalisation
-    nmse = np.mean(nmse[significant])
-
-    score = np.exp(-nmse)
+    cosineSimilarity = np.sum(catWaveform1*catWaveform2)/np.linalg.norm(catWaveform1)/np.linalg.norm(catWaveform2)
+    theta = np.arccos(cosineSimilarity)
+    score = np.exp(-abs(theta))
     return score
 
 def spikeChannelDistanceScore(waveforms1, waveforms2):

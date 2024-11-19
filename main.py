@@ -10,9 +10,15 @@ import loader
 
 # Default values
 
-binSize = 20
-binNumber = 30
+binSize = 30
+binNumber = 20
 n = 20
+max_worker = 8
+metric=[1, 1, 1, 1, 0]
+
+# Hyperparameters
+
+stepSize = 50
 
 # Functions
 
@@ -29,7 +35,8 @@ def getScore(lags, crosscorr, corr1, corr2, waveforms1, waveforms2):
     score2 = score.symmetryScore(lags, crosscorr)
     score3 = score.similarityScore(corr1, corr2)
     score4 = score.waveformsScore(waveforms1, waveforms2)
-    return score1, score2, score3, score4
+    score5 = score.spikeChannelDistanceScore(waveforms1, waveforms2)
+    return score1, score2, score3, score4, score5
     
 
 def plotSingle(args):
@@ -53,8 +60,9 @@ def plotSingle(args):
     waveforms1 = waveforms[np.where(units == args.ref)[0][0]]
     waveforms2 = waveforms[np.where(units == args.target)[0][0]]
 
-    score1, score2, score3, score4 = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
-    print(f"Score 1: {score1}\nScore 2: {score2}\nScore 3: {score3}\nScore 4: {score4}\nscore: {score1*score2*score3*score4}")
+    score1, score2, score3, score4, score5 = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
+    score = score1**args.metric[0]*score2**args.metric[1]*score3**args.metric[2]*score4**args.metric[3]*score5**args.metric[4]
+    print(f"Refractory: {score1}\nSymmetry: {score2}\nSimilarity: {score3}\nWaveforms: {score4}\nchannel: {score5}\nScore: {score}")
 
     spks = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
 
@@ -79,6 +87,7 @@ def computeScore(args):
     lastUnits = np.array([])
     lastCorr = np.array([])
     lastCorr = lastCorr.reshape((0, 0, 2*args.binNumber))
+    memory = []
     print("Loading data")
     res_data, clu_data, spk_data, xml_data = loader.load(args)
     input("Press any key to load the .clu file and start the computation")
@@ -111,21 +120,40 @@ def computeScore(args):
                 likelihood[:, :, i] = 1
         likelihood = np.prod(likelihood, axis=2)
 
+        if args.trust:
+            for pair in memory:
+                if pair[0] in units and pair[1] in units:
+                    x = np.where(units == pair[0])[0][0]
+                    y = np.where(units == pair[1])[0][0]
+                    likelihood[x, y] = 0
+                    likelihood[y, x] = 0
+
         largest_values, rows, cols = score.sortScore(likelihood, args.n)
 
-        graph, linkScore = utils.computeGraph(largest_values, rows, cols)
-        
-        
-        groups, groupsScore = utils.getConnectedComponents(graph, linkScore)
-        
-        sorted_indices = np.argsort(groupsScore)[::-1]
-        groupsScore = [groupsScore[i] for i in sorted_indices]
-        groups = [groups[i] for i in sorted_indices]
+        nonZeros = largest_values > 0
+        largest_values = largest_values[nonZeros]
+        rows = rows[nonZeros]
+        cols = cols[nonZeros]
 
-        for groupScore, group in zip(groupsScore, groups):
-            grouped_units = tuple(int(u) for u in units[list(group)])
-            grouped_units = sorted(grouped_units)
-            print(f"Units: {grouped_units} | Score: {100*groupScore:.1f}")
+        if (~nonZeros).all():
+            print("No more pairs")
+        else:
+
+            graph, linkScore = utils.computeGraph(largest_values, rows, cols)
+            groups, groupsScore = utils.getConnectedComponents(graph, linkScore)
+            
+            sorted_indices = np.argsort(groupsScore)[::-1]
+            groupsScore = [groupsScore[i] for i in sorted_indices]
+            groups = [groups[i] for i in sorted_indices]
+
+            pairs = utils.getPairsFromGroups(units, groups)
+            for pair in pairs:
+                memory.append(pair)
+
+            for groupScore, group in zip(groupsScore, groups):
+                grouped_units = tuple(int(u) for u in units[list(group)])
+                grouped_units = sorted(grouped_units)
+                print(f"Units: {grouped_units} | Score: {100*groupScore:.1f}")
 
 
         if args.plot:
@@ -149,9 +177,12 @@ def computeScore(args):
                     lastUnits = np.array([])
                     lastCorr = np.array([])
                     lastCorr = lastCorr.reshape((0, 0, 2*args.binNumber))
+                    memory = []
                 elif key == "q":
                     flag = False
                     escape = True
+                elif key == "forget":
+                    memory = []
                 elif key[0] == ":":
                     key = key[1:]
                     command = key.split("=")
@@ -186,6 +217,7 @@ if __name__ == '__main__':
     single_parser.add_argument("session", type=int, help="Session number")
     single_parser.add_argument("ref", type=int, help="Reference unit")
     single_parser.add_argument("target", type=int, help="Target unit")
+    single_parser.add_argument("--metric", type=int, choices=[0, 1], nargs=len(metric), default=metric, help="Metric to use")
     single_parser.add_argument("--binSize", type=int, default=binSize, help="Bin size")
     single_parser.add_argument("--binNumber", type=int, default=binNumber, help="Bin number")
     single_parser.set_defaults(func=plotSingle)
@@ -198,8 +230,9 @@ if __name__ == '__main__':
     score_parser.add_argument("--n", type=int, default=n, help="Number of similar units")
     score_parser.add_argument("--persistent", action="store_true", help="Use persistent homology")
     score_parser.add_argument("--plot", action="store_true", help="Plot the likelihood matrix")
-    score_parser.add_argument("--max_workers", type=int, default=16, help="Number of workers")
-    score_parser.add_argument("--metric", type=int, choices=[0, 1], nargs=5, default=[1, 1, 1, 1, 1], help="Metric to use")
+    score_parser.add_argument("--max_workers", type=int, default=max_worker, help="Number of workers")
+    score_parser.add_argument("--metric", type=int, choices=[0, 1], nargs=len(metric), default=metric, help="Metric to use")
+    score_parser.add_argument("--trust", action="store_true", help="Do not show same pairs if rejected")
     score_parser.set_defaults(func=computeScore)
     
 

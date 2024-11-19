@@ -6,7 +6,20 @@ from tqdm.auto import tqdm
 
 import utils
 
+def checkInitClu(args):
+    path = args.path
+    clu = rf'.*clu\.[0-9]$'
+    init_clu_path = os.path.join(path, 'init_clu')
+    if not os.path.exists(init_clu_path):
+        print("Warning: init_clu not found")
+    else:
+        initclu_files = [f for f in os.listdir(init_clu_path) if re.match(clu, f)]
+        clu_files = [f for f in os.listdir(args.path) if re.match(clu, f)]
+        if len(initclu_files) != len(clu_files):
+            print("Warning: init_clu and clu files do not match")
+
 def getPath(args):
+    checkInitClu(args)
     path = args.path
     session = args.session
 
@@ -55,7 +68,7 @@ def loadSpikes(clu, spkIds, xml_data, args):
     indices = np.where(np.isin(clu, spkIds))[0]
     spks = np.zeros((len(indices)*nSamples*nChannels))
     delta = nSamples*nChannels
-    for n, i in enumerate(indices):
+    for n, i in tqdm(enumerate(indices), total=len(indices)):
         startLine = i*nSamples*nChannels
         endLine = (i+1)*nSamples*nChannels
         offset = startLine*2
