@@ -1,33 +1,21 @@
 import numpy as np
 
-def lagScore(lags, corr):
-    S = np.sum(corr)
-    if S == 0:
-        return 0
-    L = np.max(lags)
-    elags = np.sum(np.abs(lags)*corr)/S
-    score = 2*elags/np.max(lags)
-    return score
+def lagScore(lags, crosscorr):
 
-def similarityScore(corr1, corr2):
-    norm1 = np.sum(corr1)
-    norm2 = np.sum(corr2)
-    if norm1 == 0 or norm2 == 0:
-        return 0
-    
-    pdf1 = corr1/norm1
-    pdf2 = corr2/norm2
-    
-    helinger = (0.5*np.sum((pdf1**0.5 - pdf2**0.5)**2))**0.5
-    score = np.exp(-helinger)
-    return score
+    pdf = crosscorr/np.sum(crosscorr)
+    y = np.correlate(pdf, pdf, mode='full')
+    y = y[len(pdf)-1:]
+    x = np.arange(0, len(pdf))
 
-def symmetryScore(lags, corr):
-    norm = np.linalg.norm(corr)
-    if norm == 0:
-        return 0
-    Elag = np.sum(lags*corr/np.sum(corr))
-    score = np.exp(-abs(Elag)/np.max(lags))
+    coeffs = np.polyfit(x, y, deg=1)  # Returns [slope, intercept]
+    y_pred = np.polyval(coeffs, x)
+
+    ss_total = np.sum((y - np.mean(y))**2)  # Total sum of squares
+    ss_residual = np.sum((y - y_pred)**2)   # Residual sum of squares
+    r_squared = 1 - (ss_residual / ss_total)
+
+    score = 10*(1 - r_squared)
+
     return score
 
 def waveformsScore(waveforms1, waveforms2):
@@ -40,15 +28,6 @@ def waveformsScore(waveforms1, waveforms2):
     score = np.exp(-abs(theta))
     return score
 
-def spikeChannelDistanceScore(waveforms1, waveforms2):
-    CenteredWaveforms1 = waveforms1 - np.mean(waveforms1, axis=0)
-    CenteredWaveforms2 = waveforms2 - np.mean(waveforms2, axis=0)
-    norm1 = np.linalg.norm(CenteredWaveforms1, axis=0)
-    norm2 = np.linalg.norm(CenteredWaveforms2, axis=0)
-    largestPeakDistance = np.abs(np.argmax(norm1) - np.argmax(norm2))
-    score = np.exp(-largestPeakDistance)
-    return score
-
 
 def getLikelihood(lags, corrs, waveforms):
     n = corrs.shape[0]
@@ -57,11 +36,8 @@ def getLikelihood(lags, corrs, waveforms):
     for i in range(n):
         for j in range(i):
             score1 = lagScore(lags, corrs[i,j, :])
-            score2 = symmetryScore(lags, corrs[i,j, :])
-            score3 = similarityScore(corrs[i,i, :], corrs[j,j, :])
-            score4 = waveformsScore(waveforms[i], waveforms[j])
-            score5 = spikeChannelDistanceScore(waveforms[i], waveforms[j])
-            likelihood[i,j, :] = score1, score2, score3, score4, score5
+            score2 = waveformsScore(waveforms[i], waveforms[j])
+            likelihood[i,j, :] = score1, score2
 
     return likelihood
 

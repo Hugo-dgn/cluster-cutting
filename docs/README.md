@@ -32,15 +32,12 @@ The `score` command accepts 7 optional parameters:
 
 The `metric` argument specifies which of the five metrics to use, in the following order:
 - **Refractory period metric**: Higher for a larger refractory period in the cross-correlogram.
-- **Symmetry metric**: Higher for symmetric cross-correlograms.
-- **Similarity metric**: Higher when the two autocorrelograms are similar.
 - **Waveforms metric**: Higher when the two waveforms are similar.
-- **Spike channel distance score**: Higher when the channels with the strongest activations coincide.
 
 For example:
 
 ```bash
-python main.py score <path> <session> --metric 0 0 0 1 0 
+python main.py score <path> <session> --metric 0 1
 ```
 
 This would use only the **Waveforms metric** to compute the score.
@@ -75,7 +72,7 @@ For example:
 
 ```bash
 :n=20
-:metric=1 1 1 0 0
+:metric=0 1
 ```
 
 This command would update the `n` and `metric` parameters.

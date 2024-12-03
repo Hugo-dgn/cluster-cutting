@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import argparse
 
 
@@ -14,13 +15,18 @@ binSize = 30
 binNumber = 20
 n = 20
 max_worker = 8
-metric=[1, 1, 1, 1, 0]
+metric=[1, 1]
 
 # Hyperparameters
 
 stepSize = 50
 
 # Functions
+
+try:
+    matplotlib.use('tkagg')
+except ImportError:
+    pass
 
 def plotWaveforms(spk, normalization):
     spk = spk - spk.mean(axis=0)
@@ -32,11 +38,8 @@ def plotWaveforms(spk, normalization):
 
 def getScore(lags, crosscorr, corr1, corr2, waveforms1, waveforms2):
     score1 = score.lagScore(lags, crosscorr)
-    score2 = score.symmetryScore(lags, crosscorr)
-    score3 = score.similarityScore(corr1, corr2)
-    score4 = score.waveformsScore(waveforms1, waveforms2)
-    score5 = score.spikeChannelDistanceScore(waveforms1, waveforms2)
-    return score1, score2, score3, score4, score5
+    score2 = score.waveformsScore(waveforms1, waveforms2)
+    return score1, score2
     
 
 def plotSingle(args):
@@ -60,9 +63,9 @@ def plotSingle(args):
     waveforms1 = waveforms[np.where(units == args.ref)[0][0]]
     waveforms2 = waveforms[np.where(units == args.target)[0][0]]
 
-    score1, score2, score3, score4, score5 = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
-    score = 100*score1**args.metric[0]*score2**args.metric[1]*score3**args.metric[2]*score4**args.metric[3]*score5**args.metric[4]
-    print(f"Refractory: {score1}\nSymmetry: {score2}\nSimilarity: {score3}\nWaveforms: {score4}\nchannel: {score5}\nScore: {score}")
+    score1, score2 = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
+    score = 100*score1**args.metric[0]*score2**args.metric[1]
+    print(f"Refractory: {score1}\nWaveforms: {score2}\nScore: {score:.1f}")
 
     spks = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
 
@@ -73,13 +76,26 @@ def plotSingle(args):
     spk1 = spks[indexUnitref]
     spk2 = spks[indexUnittarget]
     normalisation = max(np.max(spk1 - spk1.mean(axis=0)), np.max(spk2 - spk2.mean(axis=0)))
+
+    pdf = crosscorr1/np.sum(crosscorr1)
+
     plt.figure()
     plt.subplot(221)
     plotWaveforms(spk1, normalisation)
     plt.subplot(222)
     plotWaveforms(spk2, normalisation)
     plt.subplot(223)
-    plt.bar(lags, crosscorr1)
+    plt.bar(lags, pdf)
+    plt.subplot(224)
+    y = np.correlate(pdf, pdf, mode='full')
+    y = y[len(pdf)-1:]
+    x = np.arange(0, len(pdf))
+
+    coeffs = np.polyfit(x, y, deg=1)  # Returns [slope, intercept]
+    y_pred = np.polyval(coeffs, x)
+
+    plt.bar(x, y)
+    plt.plot(x, y_pred, color='red')
     plt.show()
 
 def computeScore(args):
