@@ -1,20 +1,20 @@
 import numpy as np
 
 def lagScore(lags, crosscorr):
-
+    s = np.sum(crosscorr)
+    if s == 0:
+        return 0
     pdf = crosscorr/np.sum(crosscorr)
     y = np.correlate(pdf, pdf, mode='full')
-    y = y[len(pdf)-1:]
-    x = np.arange(0, len(pdf))
+    y = y[len(pdf):]
+    corrrection = np.arange(1, len(pdf))[::-1]
+    y = y/corrrection
 
-    coeffs = np.polyfit(x, y, deg=1)  # Returns [slope, intercept]
-    y_pred = np.polyval(coeffs, x)
+    s = np.sum(y)
+    if s > 0:
+        y = y/np.sum(y)
 
-    ss_total = np.sum((y - np.mean(y))**2)  # Total sum of squares
-    ss_residual = np.sum((y - y_pred)**2)   # Residual sum of squares
-    r_squared = 1 - (ss_residual / ss_total)
-
-    score = 10*(1 - r_squared)
+    score = np.std(y)
 
     return score
 
@@ -31,7 +31,7 @@ def waveformsScore(waveforms1, waveforms2):
 
 def getLikelihood(lags, corrs, waveforms):
     n = corrs.shape[0]
-    likelihood = np.zeros((n,n, 5))
+    likelihood = np.zeros((n,n, 2))
 
     for i in range(n):
         for j in range(i):

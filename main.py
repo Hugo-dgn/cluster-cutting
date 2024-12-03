@@ -15,7 +15,7 @@ binSize = 30
 binNumber = 20
 n = 20
 max_worker = 8
-metric=[1, 1]
+metric=[0, 1]
 
 # Hyperparameters
 
@@ -88,14 +88,12 @@ def plotSingle(args):
     plt.bar(lags, pdf)
     plt.subplot(224)
     y = np.correlate(pdf, pdf, mode='full')
-    y = y[len(pdf)-1:]
-    x = np.arange(0, len(pdf))
-
-    coeffs = np.polyfit(x, y, deg=1)  # Returns [slope, intercept]
-    y_pred = np.polyval(coeffs, x)
+    y = y[len(pdf):]
+    corrrection = np.arange(1, len(pdf))[::-1]
+    y = y/corrrection
+    x = np.arange(1, len(pdf))
 
     plt.bar(x, y)
-    plt.plot(x, y_pred, color='red')
     plt.show()
 
 def computeScore(args):
