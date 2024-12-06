@@ -2,12 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import argparse
+from tqdm.auto import tqdm
 
 
 import compute
 import score
 import utils
 import loader
+import clustering
 
 # Default values
 
@@ -15,7 +17,7 @@ binSize = 30
 binNumber = 20
 n = 20
 max_worker = 8
-metric=[0, 1]
+metric=[1, 1, 1]
 
 # Hyperparameters
 
@@ -37,10 +39,10 @@ def plotWaveforms(spk, normalization):
         plt.plot(spk[:, i] + i)
 
 def getScore(lags, crosscorr, corr1, corr2, waveforms1, waveforms2):
-    score1 = score.lagScore(lags, crosscorr)
-    score2 = score.waveformsScore(waveforms1, waveforms2)
-    return score1, score2
-    
+    score1 = score.CrosscorrScore(corr1, corr2, crosscorr)
+    score2 = score.similaritySocre(corr1, corr2)
+    score3 = score.waveformsScore(waveforms1, waveforms2)
+    return score1, score2, score3
 
 def plotSingle(args):
     print("Loading data")
@@ -63,9 +65,14 @@ def plotSingle(args):
     waveforms1 = waveforms[np.where(units == args.ref)[0][0]]
     waveforms2 = waveforms[np.where(units == args.target)[0][0]]
 
-    score1, score2 = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
-    score = 100*score1**args.metric[0]*score2**args.metric[1]
-    print(f"Refractory: {score1}\nWaveforms: {score2}\nScore: {score:.1f}")
+    scores = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
+    score = 1
+    for i, _score in enumerate(scores):
+        score *= _score**args.metric[i]
+    
+    score1, score2, score3 = scores
+    score = 100*score1**args.metric[0]*score2**args.metric[1]*score3**args.metric[2]
+    print(f"Refractory: {score1}\nSimilarity: {score2}\nWaveforms: {score3}\nScore: {score:.1f}")
 
     spks = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
 
@@ -87,14 +94,55 @@ def plotSingle(args):
     plt.subplot(223)
     plt.bar(lags, pdf)
     plt.subplot(224)
-    y = np.correlate(pdf, pdf, mode='full')
-    y = y[len(pdf):]
-    corrrection = np.arange(1, len(pdf))[::-1]
+    y = np.correlate(crosscorr1, crosscorr1, mode='full')
+    y = y/max(y)
+    y = y[len(crosscorr1):]
+    corrrection = np.arange(1, len(crosscorr1))[::-1]
     y = y/corrrection
-    x = np.arange(1, len(pdf))
+    y = y/np.mean(y)
+    x = np.arange(1, len(crosscorr1))
 
     plt.bar(x, y)
     plt.show()
+
+def computeClusters(args):
+    print("Loading data")
+    _, clu_data, spk_data, xml_data = loader.load(args)
+    n_units = clu_data[0]
+    max_number_custer = n_units - 2
+    clu_data = clu_data[1:]
+    waveforms = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
+
+    list_labels = []
+    inertias = []
+    k_values = range(2, max_number_custer)
+
+    X, reduced_ratio, principal_components = clustering.waveforms_pca(waveforms, args.var)
+
+    print(f"Reduced ratio: {reduced_ratio}")
+    for k in tqdm(k_values, desc="Clustering"):
+        labels, inertia = clustering.cluster(X, k)
+        list_labels.append(labels)
+        inertias.append(inertia)
+    
+    print(f"Number of units: {n_units}")
+
+    plt.figure()
+    plt.plot(k_values, inertias, 'bo-')
+    plt.xlabel('Number of Clusters (k)')
+    plt.ylabel('Inertia')
+    plt.title('Elbow Method')
+    plt.show()
+
+    k = int(input("Choose the number of clusters: "))
+
+    labels = list_labels[int(k)-2]
+    units = utils.getUnits(clu_data)
+    for i in range(k):
+        same = units[labels == i]
+        if len(same) > 1:
+            same = np.sort(same)
+            print(f"Cluster {i}: {same}")
 
 def computeScore(args):
     flag = True
@@ -106,7 +154,9 @@ def computeScore(args):
     res_data, clu_data, spk_data, xml_data = loader.load(args)
     input("Press any key to load the .clu file and start the computation")
     while flag:
+        print("Loading .clu file")
         clu_data = loader.loadClu(args)
+        print("Computing")
         clu_data = clu_data[1:]
         units = utils.getUnits(clu_data)
         n = len(units)
@@ -130,9 +180,10 @@ def computeScore(args):
 
         likelihood = score.getLikelihood(lags, corrs, waveforms)
         for i in range(len(args.metric)):
-            if args.metric[i] == 0:
-                likelihood[:, :, i] = 1
+            likelihood[:, :, i] = likelihood[:, :, i]**args.metric[i]
+
         likelihood = np.prod(likelihood, axis=2)
+
 
         if args.trust:
             for pair in memory:
@@ -248,6 +299,12 @@ if __name__ == '__main__':
     score_parser.add_argument("--metric", type=int, choices=[0, 1], nargs=len(metric), default=metric, help="Metric to use")
     score_parser.add_argument("--trust", action="store_true", help="Do not show same pairs if rejected")
     score_parser.set_defaults(func=computeScore)
+
+    cluster_parser = subparsers.add_parser("cluster", help="Cluster waveforms")
+    cluster_parser.add_argument("path", type=str, help="Path to the data")
+    cluster_parser.add_argument("session", type=int, help="Session number")
+    cluster_parser.add_argument("--var", type=float, default=0.99, help="Variance")
+    cluster_parser.set_defaults(func=computeClusters)
     
 
     args = parser.parse_args()

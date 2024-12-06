@@ -1,43 +1,45 @@
 import numpy as np
 
-def lagScore(lags, crosscorr):
-    s = np.sum(crosscorr)
-    if s == 0:
-        return 0
-    pdf = crosscorr/np.sum(crosscorr)
-    y = np.correlate(pdf, pdf, mode='full')
-    y = y[len(pdf):]
-    corrrection = np.arange(1, len(pdf))[::-1]
-    y = y/corrrection
+def CrosscorrScore(corr1, corr2, crosscorr):
+    cosineSimilarity1 = np.sum(corr1*crosscorr)/np.linalg.norm(corr1)/np.linalg.norm(crosscorr)
+    cosineSimilarity2 = np.sum(corr2*crosscorr)/np.linalg.norm(corr2)/np.linalg.norm(crosscorr)
 
-    s = np.sum(y)
-    if s > 0:
-        y = y/np.sum(y)
+    score = max(cosineSimilarity1, cosineSimilarity2)
 
-    score = np.std(y)
+    return score
 
+def similaritySocre(corr1, corr2):
+    cosineSimilarity = np.sum(corr1*corr2)/np.linalg.norm(corr1)/np.linalg.norm(corr2)
+    score = cosineSimilarity
     return score
 
 def waveformsScore(waveforms1, waveforms2):
 
-    catWaveform1 = waveforms1.flatten()
-    catWaveform2 = waveforms2.flatten()
+    wave1 = np.diff(waveforms1)
+    wave2 = np.diff(waveforms2)
 
-    cosineSimilarity = np.sum(catWaveform1*catWaveform2)/np.linalg.norm(catWaveform1)/np.linalg.norm(catWaveform2)
-    theta = np.arccos(cosineSimilarity)
-    score = np.exp(-abs(theta))
+    catWaveform1 = wave1.flatten()
+    catWaveform2 = wave2.flatten()
+
+    xx = catWaveform1 - np.mean(catWaveform1)
+    yy = catWaveform2 - np.mean(catWaveform2)
+
+    corr = np.sum(xx*yy)/np.linalg.norm(xx)/np.linalg.norm(yy)
+    
+    score = corr
     return score
 
 
 def getLikelihood(lags, corrs, waveforms):
     n = corrs.shape[0]
-    likelihood = np.zeros((n,n, 2))
+    likelihood = np.zeros((n,n, 3))
 
     for i in range(n):
         for j in range(i):
-            score1 = lagScore(lags, corrs[i,j, :])
-            score2 = waveformsScore(waveforms[i], waveforms[j])
-            likelihood[i,j, :] = score1, score2
+            score1 = CrosscorrScore(corrs[i, i], corrs[j, j], corrs[i,j])
+            score2 = similaritySocre(corrs[i, i], corrs[j, j])
+            score3 = waveformsScore(waveforms[i], waveforms[j])
+            likelihood[i,j, :] = score1, score2, score3
 
     return likelihood
 
