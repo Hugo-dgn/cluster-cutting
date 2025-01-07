@@ -15,15 +15,12 @@ def waveforms_pca(waveforms, var):
 
     initial_number_of_features = X.shape[1]
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
     pca = PCA()
-    X_pca = pca.fit_transform(X_scaled)
+    X_pca = pca.fit_transform(X)
     explained_variance = pca.explained_variance_ratio_.cumsum()
     n_components = np.argmax(explained_variance >= var) + 1
     pca = PCA(n_components=n_components)
-    X_reduced = pca.fit_transform(X_scaled)
+    X_reduced = pca.fit_transform(X)
 
     reduced_ratio = X_reduced.shape[1] / initial_number_of_features
     principal_components = pca.components_

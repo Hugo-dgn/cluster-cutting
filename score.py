@@ -1,8 +1,13 @@
 import numpy as np
 
 def CrosscorrScore(corr1, corr2, crosscorr):
-    cosineSimilarity1 = np.sum(corr1*crosscorr)/np.linalg.norm(corr1)/np.linalg.norm(crosscorr)
-    cosineSimilarity2 = np.sum(corr2*crosscorr)/np.linalg.norm(corr2)/np.linalg.norm(crosscorr)
+    n1 = np.linalg.norm(corr1)
+    n2 = np.linalg.norm(corr2)
+    n = np.linalg.norm(crosscorr)
+    if n1*n2*n == 0:
+        return 0
+    cosineSimilarity1 = np.sum(corr1*crosscorr)/n1/n
+    cosineSimilarity2 = np.sum(corr2*crosscorr)/n2/n
 
     score = max(cosineSimilarity1, cosineSimilarity2)
 
@@ -52,5 +57,4 @@ def sortScore(likelihood, n):
     rows, cols = np.unravel_index(sorted_indices, likelihood.shape)
 
     largest_values = likelihood[rows, cols]
-
     return largest_values, rows, cols
