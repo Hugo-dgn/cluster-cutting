@@ -30,6 +30,7 @@ try:
 except ImportError:
     pass
 
+
 def plotWaveforms(spk, normalization):
     spk = spk - spk.mean(axis=0)
     spk = spk/normalization
@@ -272,6 +273,36 @@ def computeScore(args):
         else:
             flag = False
 
+def notes(args):
+    graph = {}
+    linkScore = {}
+    flag = True
+    while flag:
+        command = input("candidate merge:")
+
+        if command == "q":
+            flag = False
+        elif command == "":
+            groups, _ = utils.getConnectedComponents(graph, linkScore)
+            for group in groups:
+                print(sorted(group))
+            graph = {}
+            linkScore = {}
+        else:
+            pair = command.split(" ")
+            if len(pair) != 2:
+                print("Invalid command")
+                continue
+            i, j = [int(p) for p in pair]
+            if i not in graph:
+                graph[i] = set()
+            if j not in graph:
+                graph[j] = set()
+            graph[i].update([j])
+            graph[j].update([i])
+            linkScore[(i, j)] = 1
+            linkScore[(j, i)] = 1
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Klusters")
     
@@ -305,6 +336,9 @@ if __name__ == '__main__':
     cluster_parser.add_argument("session", type=int, help="Session number")
     cluster_parser.add_argument("--var", type=float, default=0.99, help="Variance")
     cluster_parser.set_defaults(func=computeClusters)
+
+    notes_parser = subparsers.add_parser("notes", help="Notes")
+    notes_parser.set_defaults(func=notes)
     
 
     args = parser.parse_args()
