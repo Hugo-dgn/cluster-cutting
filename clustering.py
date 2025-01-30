@@ -4,6 +4,8 @@ from sklearn.preprocessing import StandardScaler
 import numpy as np
 
 def flattent_waveforms(waveforms):
+    #to do PCA we must flatten the waveforms
+    #it is usally in the shape (n_samples, n_channels)
     return waveforms.reshape(waveforms.shape[0], -1)
 
 def reconstruct_waveforms(X, n_samples, n_channels):

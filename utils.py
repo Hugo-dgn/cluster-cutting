@@ -18,6 +18,7 @@ def getChannels(waveforms):
     return channels
 
 def getSampleParameters(xml_data, session):
+    #parse xml file
     root = xml_data.getroot()
     spikeDetection = root.find('spikeDetection')
     channelGroups = spikeDetection[0]
@@ -27,8 +28,8 @@ def getSampleParameters(xml_data, session):
     return nSamples, nChannels
 
 def computeGraph(largest_values, rows, cols):
-    graph = {}
-    linkScore = {}
+    graph = {} #the key is the unit number and the value is a set of units that are connected to the key unit
+    linkScore = {} #the key is a tuple of two units and the value is the score of the link between the two units
 
     for value, (i,j) in zip(largest_values, zip(rows, cols)):
         i, j = int(i), int(j)
@@ -44,6 +45,8 @@ def computeGraph(largest_values, rows, cols):
     return graph, linkScore
 
 def getConnectedComponents(graph, linkScore):
+    #does a breadth first search to find connected components, meaning groups of units
+    #must be merged together
     visited = {i : False for i in graph}
     next = [i for i in graph]
     groups = []
@@ -70,6 +73,9 @@ def getConnectedComponents(graph, linkScore):
     return groups, groupsScore
 
 def getPairsFromGroups(units, groups):
+    #groups is a list of lists of units that are connected. Each list in groups
+    #is a group of units that are recommended to be merged together
+    #this function returns all the pair that are recommended to be merged together
     pairs = []
     for group in groups:
         n = len(group)

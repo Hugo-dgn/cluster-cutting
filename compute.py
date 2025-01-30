@@ -11,13 +11,16 @@ def getBins(time, binSize, binNumber):
     return lags, edges
 
 def computeCrossCorr(timeTarget, edges, auto):
-
+    #compute the cross correlation between the target and the reference
+    #the most efficient way is to inserte the edges of the bins into the target
+    #the difference of insertion index represent the number of spikes in the bin
     corr = np.searchsorted(timeTarget, edges)
     corr = np.diff(corr, axis=0)
     corr = np.sum(corr, axis=1)
 
     if auto:
-        corr[len(edges)//2] -= len(timeTarget)
+        corr[len(edges)//2] -= len(timeTarget) #The spike of reference will always be in the
+        #center bin, so we need to subtract the number of spikes from the center bin.
 
     return corr
 
@@ -36,11 +39,14 @@ def computeWaveforms(clu_data, spk_data, xml_data, session):
     nSamples, nChannels = utils.getSampleParameters(xml_data, session)
     spk = spk_data.reshape(-1, nSamples, nChannels)
     waveforms = np.zeros((len(units), nSamples, nChannels))
+    #compute the average waveform for each unit because that is what we will use to compare
     for i, unit in enumerate(units):
         waveforms[i] = spk[clu_data == unit].mean(axis=0)
     return waveforms
 
 def computeCrossCorrWrapper(timeTarget, edges, auto, index):
+    #useful for paralelization purposes. It returns the index we assigned to that computation
+    #This is useful because parallelization can mess up the order of the results
     corr = computeCrossCorr(timeTarget, edges, auto)
     return index, corr
 

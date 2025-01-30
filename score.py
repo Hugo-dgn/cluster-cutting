@@ -1,6 +1,8 @@
 import numpy as np
 
 def CrosscorrScore(corr1, corr2, crosscorr):
+    #this compares the crosscorrelation of two units with the auto correlation of the two units
+    #if the are similar, the score is high
     n1 = np.linalg.norm(corr1)
     n2 = np.linalg.norm(corr2)
     n = np.linalg.norm(crosscorr)
@@ -14,12 +16,16 @@ def CrosscorrScore(corr1, corr2, crosscorr):
     return score
 
 def similaritySocre(corr1, corr2):
+    #this compares the auto correlation of two units
+    #if the are similar, the score is high
     cosineSimilarity = np.sum(corr1*corr2)/np.linalg.norm(corr1)/np.linalg.norm(corr2)
     score = cosineSimilarity
     return score
 
 def waveformsScore(waveforms1, waveforms2):
-
+    #this compares the waveforms of two units
+    #if the are similar, the score is high
+    #the cosine similarity will be high even if one waveform is a scaled version of the other
     wave1 = np.diff(waveforms1)
     wave2 = np.diff(waveforms2)
 

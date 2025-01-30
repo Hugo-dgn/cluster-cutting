@@ -51,6 +51,7 @@ def getScore(lags, crosscorr, corr1, corr2, waveforms1, waveforms2):
     return score1, score2, score3
 
 def plotSingle(args):
+    #only plot two units : waveforms and correlograms
     print("Loading data")
     clu_data = loader.loadClu(args)
     clu_data = clu_data[1:]
@@ -108,6 +109,7 @@ def plotSingle(args):
     plt.show()
 
 def computeClusters(args):
+    #use clusterisation method on the waveforms to find potential cluster merge
     print("Loading data")
     _, clu_data, spk_data, xml_data = loader.load(args)
     n_units = clu_data[0]
@@ -162,18 +164,21 @@ def computeScore(args):
         clu_data = clu_data[1:]
         units = utils.getUnits(clu_data)
         n = len(units)
+
+        #find which units did not change from last iteration (for the --trust flag)
         sameIndex = np.isin(units, lastUnits)
         reusedIndex = np.isin(lastUnits, units)
         restrict = units[~sameIndex]
         lastUnits = units
         
+        #compute cross-corelofram
         lags, newCorrs = compute.computeAllCrossCorr(res_data, clu_data, args.binSize, args.binNumber, args.max_workers, restrict)
         waveforms = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
 
         corrs = np.zeros((n, n, 2*args.binNumber))
 
-        old = np.outer(sameIndex, sameIndex)
-        reused = np.outer(reusedIndex, reusedIndex)
+        old = np.outer(sameIndex, sameIndex) #same units as last iteration
+        reused = np.outer(reusedIndex, reusedIndex) #units for which the cross-corelogram was already computed
 
         corrs[old, :] = lastCorr[reused, :]
         corrs[~old, :] = newCorrs[~old, :]
@@ -188,6 +193,7 @@ def computeScore(args):
 
 
         if args.trust:
+            #remove pairs that were rejected in the last iteration
             for pair in memory:
                 if pair[0] in units and pair[1] in units:
                     x = np.where(units == pair[0])[0][0]
@@ -213,9 +219,9 @@ def computeScore(args):
             groupsScore = [groupsScore[i] for i in sorted_indices]
             groups = [groups[i] for i in sorted_indices]
 
-            pairs = utils.getPairsFromGroups(units, groups)
+            pairs = utils.getPairsFromGroups(units, groups) #get all the recommended pairs
             for pair in pairs:
-                memory.append(pair)
+                memory.append(pair) #store them so they are not recomputed if --trust is used
 
             for groupScore, group in zip(groupsScore, groups):
                 grouped_units = tuple(int(u) for u in units[list(group)])
@@ -283,13 +289,14 @@ def notes(args):
 
         if command == "q":
             flag = False
-        elif command == "":
+        elif command == "": #if enter is hit
             groups, _ = utils.getConnectedComponents(graph, linkScore)
             for group in groups:
                 print(sorted(group))
             graph = {}
             linkScore = {}
         else:
+            #there is two ways to input a pair : "i j" or "i-j"
             pair1 = command.split(" ")
             pair2 = command.split("-")
             if len(pair1) == 2:
@@ -299,6 +306,8 @@ def notes(args):
             else:
                 print("Invalid command")
                 continue
+
+            #adds the pair to the graph
             i, j = [int(p) for p in pair]
             if i not in graph:
                 graph[i] = set()
