@@ -12,6 +12,11 @@ def getUnits(clu):
     units = units[units > 1]
     return units
 
+def getChannels(waveforms):
+    var = np.var(waveforms, axis=1)
+    channels = np.argmax(var, axis=1)
+    return channels
+
 def getSampleParameters(xml_data, session):
     root = xml_data.getroot()
     spikeDetection = root.find('spikeDetection')

@@ -36,8 +36,13 @@ def plotWaveforms(spk, normalization):
     spk = spk/normalization
     spk = spk[:,::-1]
 
+    channel = utils.getChannels(spk[None, :])[0]
+
     for i in range(spk.shape[1]):
-        plt.plot(spk[:, i] + i)
+        if i == channel:
+            plt.plot(spk[:, i] + i, linewidth=4)
+        else:
+            plt.plot(spk[:, i] + i)
 
 def getScore(lags, crosscorr, corr1, corr2, waveforms1, waveforms2):
     score1 = score.CrosscorrScore(corr1, corr2, crosscorr)
@@ -58,13 +63,17 @@ def plotSingle(args):
     res_data = res_data[relevent]
 
     units = utils.getUnits(clu_data)
+    indexUnitref = np.where(units == args.ref)[0][0]
+    indexUnittarget = np.where(units == args.target)[0][0]
+    
     lags, crosscorr1 = compute.getSingleCrossCorr(res_data, clu_data, args.ref, args.target, args.binSize, args.binNumber)
     lags, corr1 = compute.getSingleCrossCorr(res_data, clu_data, args.ref, args.ref, args.binSize, args.binNumber)
     lags, corr2 = compute.getSingleCrossCorr(res_data, clu_data, args.target, args.target, args.binSize, args.binNumber)
     
     waveforms = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
-    waveforms1 = waveforms[np.where(units == args.ref)[0][0]]
-    waveforms2 = waveforms[np.where(units == args.target)[0][0]]
+    
+    waveforms1 = waveforms[indexUnitref]
+    waveforms2 = waveforms[indexUnittarget]
 
     scores = getScore(lags, crosscorr1, corr1, corr2, waveforms1, waveforms2)
     score = 1
@@ -75,23 +84,15 @@ def plotSingle(args):
     score = 100*score1**args.metric[0]*score2**args.metric[1]*score3**args.metric[2]
     print(f"Refractory: {score1}\nSimilarity: {score2}\nWaveforms: {score3}\nScore: {score:.1f}")
 
-    spks = compute.computeWaveforms(clu_data, spk_data, xml_data, args.session)
-
-    units = utils.getUnits(clu_data)
-    indexUnitref = np.where(units == args.ref)[0][0]
-    indexUnittarget = np.where(units == args.target)[0][0]
-
-    spk1 = spks[indexUnitref]
-    spk2 = spks[indexUnittarget]
-    normalisation = max(np.max(spk1 - spk1.mean(axis=0)), np.max(spk2 - spk2.mean(axis=0)))
+    normalisation = max(np.max(waveforms1 - waveforms1.mean(axis=0)), np.max(waveforms2 - waveforms2.mean(axis=0)))
 
     pdf = crosscorr1/np.sum(crosscorr1)
 
     plt.figure()
     plt.subplot(221)
-    plotWaveforms(spk1, normalisation)
+    plotWaveforms(waveforms1, normalisation)
     plt.subplot(222)
-    plotWaveforms(spk2, normalisation)
+    plotWaveforms(waveforms2, normalisation)
     plt.subplot(223)
     plt.bar(lags, pdf)
     plt.subplot(224)
@@ -289,8 +290,13 @@ def notes(args):
             graph = {}
             linkScore = {}
         else:
-            pair = command.split(" ")
-            if len(pair) != 2:
+            pair1 = command.split(" ")
+            pair2 = command.split("-")
+            if len(pair1) == 2:
+                pair = pair1
+            elif len(pair2) == 2:
+                pair = pair2
+            else:
                 print("Invalid command")
                 continue
             i, j = [int(p) for p in pair]
